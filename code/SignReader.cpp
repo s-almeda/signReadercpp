@@ -56,11 +56,11 @@ const std::string stateNames[] = {"STATE_INVALID", "STATE_START", "STATE_UPDATE"
 
 
 void MyListener::onInit(const Controller& controller) {
-  std::cout << "Initialized" << std::endl;
+  //std::cout << "Initialized" << std::endl;
 }
 
 void MyListener::onConnect(const Controller& controller) {
-  std::cout << "Connected" << std::endl;
+  //std::cout << "Connected" << std::endl;
   controller.enableGesture(Gesture::TYPE_CIRCLE);
   controller.enableGesture(Gesture::TYPE_KEY_TAP);
   controller.enableGesture(Gesture::TYPE_SCREEN_TAP);
@@ -73,7 +73,7 @@ void MyListener::onDisconnect(const Controller& controller) {
 }
 
 void MyListener::onExit(const Controller& controller) {
-  std::cout << "Exited" << std::endl;
+  //std::cout << "Exited" << std::endl;
 }
 
 void MyListener::onFrame(const Controller& controller) {
@@ -92,7 +92,7 @@ void MyListener::onFrame(const Controller& controller) {
 }
 
 void MyListener::onFocusGained(const Controller& controller) {
-  std::cout << "Focus Gained" << std::endl;
+  std::cout << "Focus Gained :0" << std::endl;
 }
 
 void MyListener::onFocusLost(const Controller& controller) {
@@ -240,6 +240,8 @@ void printData(const Controller& controller){
 }
 
 
+
+
 FingerList getFingers(Frame frame, bool printRequested){
   FingerList fingers;
   //const char finger_names[5] = {'T', 'I', 'M', 'R', 'P'};
@@ -318,7 +320,7 @@ bool framesEqual(Frame frame1, Frame frame2){
   """ isSteady function returns true if the hand is steady
       uses the framesEqual(frame1, frame2) function
 
-            checks if the last (framecount) frames in the list (frameList) are about equal
+            checks if the last (framecount) frames in the controller are about equal
             if so, the hand is steady, return true. otherwise return false.
 
             Parameters
@@ -333,26 +335,7 @@ bool framesEqual(Frame frame1, Frame frame2){
             bool
                 true if hand is steady, false otherwise.
 ***/
-/*bool isSteady (list<Frame> frameList, int frameCount){
-   int total = frameList.size();
 
-    Frame frame1 = frameList[total - frameCount] //first frame that we want to check
-    int i = (total - frameCount + 1)           //index of the frame after that one
-    Frame frame2 = frameList[i]
-
-    for (int x = i+1; x < frameCount; x++){       //iterate through the selected frames
-
-        if (not(framesEqual(frame1, frame2))): // if they're not about equal,
-           std::cout << "NOT STEADY";
-            return false;                    #then quit
-        frame1 = frame2;                    #otherwise, iterate to the next 2 frames.
-        frame2 = frameList[x];
-
-      }
-    std::cout <<"STEADY";
-    return true;           
-
-}*/
 
 bool isSteady(const Controller& controller){
     if (framesEqual(controller.frame(1), controller.frame()) && framesEqual(controller.frame(1), controller.frame(2)))
@@ -373,6 +356,8 @@ bool isSteady(const Controller& controller, int frameCount){
 }
 
 std::vector<Bone::Type> getBoneTypes(){
+
+
   std::vector<Bone::Type> result;
   Bone::Type METACARPAL = static_cast<Bone::Type>(0);
   result.push_back(METACARPAL);
@@ -486,12 +471,62 @@ std::map<std::string, std::string> getFingerStatuses(FingerList fingers, Hand ha
     if (printRequested){
       std::map<std::string, std::string>::iterator pos;
       for (pos = result.begin(); pos != result.end(); ++pos) {
-          std::cout << pos->first << " Finger Status: " << pos->second << std::endl;
+          std::cout << pos->first << " Finger Status:  " << pos->second << std::endl;
         }
     }
 
 
     return result;
+}
+
+std::vector<float> getFingerAngles(FingerList fingers, Hand hand, bool printRequested){
+  /*    
+    gets angles between each adjacent finger
+    returns an array of tuples with name of angle and its value in degrees
+    Returns array with angles in this order:
+     thumb and index, index and middle, middle and ring, ring and pinky
+
+    Parameters
+    ----------
+    fingers : FingerList
+    hand : hand object
+    printRequested: bool
+        if true, prints debug messages
+
+    Returns
+    -------
+    vector of angles in this order:
+    ['TI', 'IM', 'MR', 'RP']
+    (0:thumb to index, 
+    1: index to middle, 
+    2:middle to ring, 
+    3:ring to pinky)
+    
+*/
+
+  std::string angleNames[4] = {"THUMB-INDEX", "INDEX-MIDDLE", "MIDDLE-RING", "RING-PINKY"};
+  std::vector<float> result;
+  int counter = 0;
+  bool first = true;
+  Finger lastFinger;
+  for (Finger f : fingers){
+    if (first){
+      lastFinger = f;
+      first = false;
+    }
+    else{//find the angle between the last finger and the current finger
+      Vector vectorA = lastFinger.direction();
+      Vector vectorB = f.direction();
+      float myAngle = 180*(vectorA.angleTo(vectorB))/M_PI;
+      if (printRequested)
+        std::cout << "ANGLE " << angleNames[counter] << ": " << myAngle << std::endl;
+      lastFinger = f;
+      counter++;
+      result.push_back(myAngle);
+    }
+  } //end of for-each loop
+
+  return result;
 }
 
 bool isTouching (FingerList fingers, Finger::Type finger1, Finger::Type finger2, bool printRequested){
@@ -510,6 +545,8 @@ bool isTouching (FingerList fingers, Finger::Type finger1, Finger::Type finger2,
         False if not.
     """*/
 
+    std::string fingerNames[5] = {"THUMB", "INDEX", "MIDDLE","RING","PINKY"};
+
     FingerList fingers1 = fingers.fingerType(finger1);
     FingerList fingers2 = fingers.fingerType(finger2);
     if (fingers1.isEmpty() || fingers2.isEmpty()){
@@ -522,7 +559,9 @@ bool isTouching (FingerList fingers, Finger::Type finger1, Finger::Type finger2,
 
     float thisDistance = boneCoord1.distanceTo(boneCoord2);
     if (printRequested)
-      std::cout << "Distance: " << thisDistance;
+      std::cout << "Distance between: " << fingerNames[fingers1[0].type()] << " and " << fingerNames[fingers2[0].type()]<< " is " << thisDistance << std::endl;
+
+    std::cout<< fingerNames[fingers1[0].type()] << " and " << fingerNames[fingers2[0].type()] << " are ";
 
     if (thisDistance < TOUCHING_MARGIN){
         if (printRequested)
@@ -537,9 +576,42 @@ bool isTouching (FingerList fingers, Finger::Type finger1, Finger::Type finger2,
 
 }
 
+void printHelpMessage(){
+   /*
+    # 1     -> print ALL INFO
+    # 2     -> print FINGER INFO
+    # 3     -> print FINGER STATUSES
+    # 4     -> prints ANGLES BETWEEN FINGERS
+    # s     -> prints whether hand is steady
+    # 0     -> attempt to read a sign
+
+    */
+
+  std::cout << "Hi!\nHit \'Enter\' to print data. \nInput a number to select what kind of data.\n";
+  std::cout << "==================\n";
+  std::cout << " 1 ------> print ALL INFO \n 2 ------> print FINGER INFO \n 3 ------> print FINGER STATUSES\n";
+  std::cout << " 4 ------> prints ANGLES BETWEEN FINGERS \n s ------> prints whether hand is steady\n 0 ------> attempt to read a sign\n";
+
+  std::cout << "==================\n";
+  std::cout << "\nEnter q to quit. ;(\n" << "Input \"help\" at any time to get this help message again.\n\n";
+}
+
+
+/*###############################################################    
+#
+#                             GET SIGN                          #
+#
+*##############################################################*/
+
+void getSign(std::map<std::string, std::string> fingerStatuses, Hand hand, bool thumbIsTouchingMiddle){
+   std::cout << "\n ...haven't written the actual sign getting yet lol...\n" << std::endl;
+   return;
+
+}
 
 
 int main(int argc, char** argv) {
+  printHelpMessage();
   /* Main Function, body of program */
 
   //bool paused = false;
@@ -563,6 +635,7 @@ int main(int argc, char** argv) {
 
 
   std::string input;
+  std::string lastInput;
   FingerList myFingerList;
   Hand myHand;
 
@@ -570,7 +643,6 @@ int main(int argc, char** argv) {
 
 
   // Keep this process running until Enter is pressed
-  std::cout << "Enter q to quit..." << std::endl;
   //getline(std::cin, input);
   while(!(input[0] == 'q')){
     
@@ -580,21 +652,27 @@ int main(int argc, char** argv) {
     # 1     -> print ALL INFO
     # 2     -> print FINGER INFO
     # 3     -> print FINGER STATUSES
-    # s     -> pause recording
+    # 4     -> prints ANGLES BETWEEN FINGERS
+    # s     -> prints whether hand is steady
     # ' '   -> get sign (spacebar)
 
     */
-    if (!(input.empty())){ //EMPTY INPUT
-      //std::cout << "inputted:" << input << std::endl;
+
+    if (!(input.empty())){ //NOT EMPTY INPUT
+      lastInput = input; 
     }
-    if (input[0] == '1'){ // print ALL INFO
+    if (input.compare("help") == 0 || (input.empty()&&lastInput.empty())){
+      printHelpMessage();
+    }
+    else if (lastInput[0] == '1'){ // print ALL INFO
         printData(controller);
     }
-    if (input[0] == '2'){ // print FINGER INFO
-        getFingers(controller.frame(), true);
+    else if (lastInput[0] == '2'){ // print FINGER INFO
+        mostRecentFrame = controller.frame();
+        getFingers(mostRecentFrame, true);
     }
 
-    if (input[0] == '3'){ 
+    else if (lastInput[0] == '3'){ 
       mostRecentFrame = controller.frame();
       if (isSteady(listener)){
                     myFingerList = getFingers(mostRecentFrame, false);
@@ -602,13 +680,22 @@ int main(int argc, char** argv) {
                     std::map<std::string, std::string> fingerStatuses = getFingerStatuses(myFingerList, myHand, true);
       } 
       else{
-        std::cout<< "Hand is unsteady.";
+        
+        std::cout<< "Hand is unsteady or out of frame.";
       }
 
     }
 
+    else if (lastInput[0]== '4'){ //print angles between fingers
+      mostRecentFrame = controller.frame();
+      myFingerList = getFingers(mostRecentFrame, false);
+      myHand = mostRecentFrame.hands().frontmost();
+      getFingerAngles(myFingerList, myHand, true);
+      continue;
+    }
 
-    if (input[0] == 's'){ // print if steady
+
+    else if (lastInput[0] == 's'){ // print if steady
         if (isSteady(controller)){
             std::cout<< "STEADY\n";
         }
@@ -617,19 +704,19 @@ int main(int argc, char** argv) {
         }
     }
 
-    /**** #~ GET SIGN ~#  *****/
-    if (input[0] == ' '){ 
+    /**** #~ REQUESTING GET SIGN ~#  *****/
+    else if (lastInput[0] == '0'){ 
       mostRecentFrame = controller.frame();
       if (isSteady(listener)){
                     myFingerList = getFingers(mostRecentFrame, false);
                     myHand = mostRecentFrame.hands().frontmost();
-                    std::map<std::string, std::string> fingerStatuses = getFingerStatuses(myFingerList, myHand, true);
+                    std::map<std::string, std::string> fingerStatuses = getFingerStatuses(myFingerList, myHand, false);
 
-                    //getSign(fingerStatuses, myHand, isTouching(myFingerList, 0, 2, false));
+                    getSign(fingerStatuses, myHand, isTouching(myFingerList, Finger::TYPE_THUMB, Finger::TYPE_MIDDLE, true));
       } 
                     //anglesToPalm(myFingerList, myHand, False), getFingerAngles(myFingerList,myHand, False), 
       else{
-        std::cout<< "Hand is unsteady.";
+        std::cout<< "Hand is unsteady or out of frame.";
       }
 
     }
